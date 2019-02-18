@@ -1,0 +1,10 @@
+/Makefile
+/CMakeFiles/
+/CMakeCache.txt
+/cmake_install.cmake
+/CPackConfig.cmake
+/CPackSourceConfig.cmake
+/simple_client
+/simple_server
+/lib/
+/a.out
