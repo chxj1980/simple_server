@@ -7,8 +7,8 @@
 
 namespace hera {
 
-Connection::Connection(int efd, int fd, sockaddr_in addr) : efd_(efd), fd_(fd),
-      events_(0), addr_(addr)  {
+Connection::Connection(int efd, int fd, sockaddr_in addr, HandlerPtr handler) :
+    efd_(efd), fd_(fd), events_(0), addr_(addr), handler_(handler)  {
   uint16_t port = ntohs(addr_.sin_port);
   char ip[kAddrIpLen];
   inet_ntop(AF_INET, &(addr.sin_addr), ip, sizeof(ip));
@@ -40,30 +40,11 @@ bool Connection::DisableWrite() {
 }
 
 bool Connection::OnRead() {
-  // TODO(litao.sre): custom handler
-  char req[5];
-  ssize_t n = read(fd_, req, sizeof(req));
-  if (n == 0) {
-    LOG(INFO) << "peer closed";
-    return false;
-  }
-  if (strcmp(req, "TIME") == 0) {
-    LOG(INFO) << "recv req: " << req;
-    EnableWrite();
-    return true;
-  } else {
-    LOG(ERROR) << "invalid req: " << req;
-    return false;
-  }
+  return handler_->OnRead(this);
 }
 
 bool Connection::OnWrite() {
-  // TODO(litao.sre): custom handler
-  std::time_t resp = std::time(nullptr);
-  write(fd_, &resp, sizeof(resp));
-  DisableWrite();
-  LOG(INFO) << "send resp: " << resp;
-  return true;
+  return handler_->OnWrite(this);
 }
 
 bool Connection::AddEvent(int events) {

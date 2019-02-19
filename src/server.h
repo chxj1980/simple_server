@@ -24,6 +24,9 @@ class Server {
   bool Init();
   void Start();
   void Stop();
+ 
+ protected:
+  virtual HandlerPtr CreateHandler() = 0;
 
  private:
   ConnectionPtr AcceptConn();

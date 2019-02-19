@@ -4,11 +4,13 @@
 
 #include <memory>
 
+#include "handler.h"
+
 namespace hera {
 
 class Connection {
  public:
-  Connection(int efd, int fd, sockaddr_in addr);
+  Connection(int efd, int fd, sockaddr_in addr, HandlerPtr handler);
   virtual ~Connection();
 
   Connection(const Connection&) = delete;
@@ -39,6 +41,7 @@ class Connection {
   int events_;
   sockaddr_in addr_;
   char addr_id_[kAddrIdLen];
+  HandlerPtr handler_;
 };
 
 using ConnectionPtr = std::shared_ptr<Connection>;

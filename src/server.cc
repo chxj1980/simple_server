@@ -53,7 +53,8 @@ ConnectionPtr Server::AcceptConn() {
     Close(fd);
     return nullptr;
   }
-  ConnectionPtr conn = std::make_shared<Connection>(efd_, fd, addr);
+  HandlerPtr handler = CreateHandler();
+  ConnectionPtr conn = std::make_shared<Connection>(efd_, fd, addr, handler);
   if (!conn->EnableRead()) {
     LOG(ERROR) << "conn enable read error";
     return nullptr;
@@ -103,23 +104,3 @@ bool Server::Poll() {
 }
 
 }  // namespace hera
-
-int main(int argc, char* argv[]) {
-  google::InitGoogleLogging(argv[0]);
-  if (argc != 2) {
-    LOG(ERROR) << "usage: ./simple_server <port>";
-    exit(EXIT_FAILURE);
-  }
-  uint16_t port = atoi(argv[1]);
-  int backlog = 128;
-  size_t max_connections = 1024;
-  hera::Server server(port, backlog, max_connections);
-  if (!server.Init()) {
-    LOG(ERROR) << "server init error";
-    exit(EXIT_FAILURE);
-  }
-  // TODO(litao.sre): signal handle
-  server.Start();
-  google::ShutdownGoogleLogging();
-  return 0;
-}
