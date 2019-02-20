@@ -12,7 +12,7 @@ class MyHandler : public hera::Handler {
 
 bool MyHandler::OnRead(hera::Connection* conn) {
   char req[5];
-  ssize_t n = read(conn->fd(), req, sizeof(req));
+  ssize_t n = conn->Read(req, sizeof(req));
   if (n == 0) {
     LOG(INFO) << "peer closed";
     return false;
@@ -40,7 +40,7 @@ class MyServer : public hera::Server {
 
 bool MyHandler::OnWrite(hera::Connection* conn) {
   std::time_t resp = std::time(nullptr);
-  write(conn->fd(), &resp, sizeof(resp));
+  conn->Write(&resp, sizeof(resp));
   conn->DisableWrite();
   LOG(INFO) << "send resp: " << resp;
   return true;

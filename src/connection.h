@@ -22,9 +22,10 @@ class Connection {
   bool EnableWrite();
   bool DisableRead();
   bool DisableWrite();
-
-  virtual bool OnRead();
-  virtual bool OnWrite();
+  bool OnRead();
+  bool OnWrite();
+  ssize_t Read(void* buf, size_t count);
+  ssize_t Write(const void* buf, size_t count);
 
   int fd() const { return fd_; }
   const char* addr_id() const { return addr_id_; }

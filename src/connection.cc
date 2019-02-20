@@ -28,7 +28,7 @@ bool Connection::EnableRead() {
 
 
 bool Connection::EnableWrite() {
-  return AddEvent(EPOLLOUT | EPOLLET);
+  return AddEvent(EPOLLOUT);
 }
 
 bool Connection::DisableRead() {
@@ -45,6 +45,14 @@ bool Connection::OnRead() {
 
 bool Connection::OnWrite() {
   return handler_->OnWrite(this);
+}
+
+ssize_t Connection::Read(void* buf, size_t count) {
+  return read(fd_, buf, count);
+}
+
+ssize_t Connection::Write(const void* buf, size_t count) {
+  return write(fd_, buf, count);
 }
 
 bool Connection::AddEvent(int events) {
