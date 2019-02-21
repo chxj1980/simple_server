@@ -20,19 +20,21 @@ class Connection {
 
   bool EnableRead();
   bool EnableWrite();
-  bool DisableRead();
   bool DisableWrite();
+
   bool OnRead();
   bool OnWrite();
-  ssize_t Read(void* buf, size_t count);
-  ssize_t Write(const void* buf, size_t count);
 
   int fd() const { return fd_; }
   const char* addr_id() const { return addr_id_; }
+  BufferPtr read_buf() const { return read_buf_; }
+  BufferPtr write_buf() const { return write_buf_; }
 
  private:
-  static const int kAddrIpLen = 16;
-  static const int kAddrIdLen = 22; 
+  static const size_t kAddrIpLen;
+  static const size_t kAddrIdLen;
+  static const size_t kMinBufCap;
+  static const size_t kBufExpandThreshold;
 
   bool AddEvent(int events);
   bool DelEvent(int events);
@@ -41,8 +43,10 @@ class Connection {
   int fd_;
   int events_;
   sockaddr_in addr_;
-  char addr_id_[kAddrIdLen];
+  char* addr_id_;
   HandlerPtr handler_;
+  BufferPtr read_buf_;
+  BufferPtr write_buf_;
 };
 
 using ConnectionPtr = std::shared_ptr<Connection>;

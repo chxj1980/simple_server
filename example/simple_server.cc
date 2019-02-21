@@ -1,30 +1,40 @@
 #include <chrono>
 
 #include "glog/logging.h"
-#include "handler.h"
 #include "server.h"
 
 class MyHandler : public hera::Handler {
  public:
-  virtual bool OnRead(hera::Connection* conn);
-  virtual bool OnWrite(hera::Connection* conn);
+  hera::Handler::ReqStatus OnRequest(hera::Connection* conn) override;
+  bool OnComplete(bool succ) override;
 };
 
-bool MyHandler::OnRead(hera::Connection* conn) {
-  char req[5];
-  ssize_t n = conn->Read(req, sizeof(req));
-  if (n == 0) {
-    LOG(INFO) << "peer closed";
-    return false;
+hera::Handler::ReqStatus MyHandler::OnRequest(hera::Connection* conn) {
+  if (conn->read_buf()->limit() < 5) {
+    return hera::Handler::kReqNotReady;
   }
-  if (strcmp(req, "TIME") == 0) {
-    LOG(INFO) << "recv req: " << req;
-    conn->EnableWrite();
-    return true;
-  } else {
+  const char* req = conn->read_buf()->head();
+  if (strcmp(req, "TIME") != 0) {
     LOG(ERROR) << "invalid req: " << req;
-    return false;
+    return hera::Handler::kReqInvalid;
   }
+  LOG(INFO) << "recv req: " << req;
+
+  std::time_t resp = std::time(nullptr);
+  conn->write_buf()->Write(&resp, sizeof(resp));
+  conn->EnableWrite();
+  LOG(INFO) << "send resp: " << resp;
+
+  return hera::Handler::kReqReady;
+}
+
+bool MyHandler::OnComplete(bool succ) {
+  if (succ) {
+    LOG(INFO) << "resp send succ";
+  } else {
+    LOG(INFO) << "resp send failed";
+  }
+  return true;
 }
 
 class MyServer : public hera::Server {
@@ -37,14 +47,6 @@ class MyServer : public hera::Server {
     return std::make_shared<MyHandler>();
   }
 };
-
-bool MyHandler::OnWrite(hera::Connection* conn) {
-  std::time_t resp = std::time(nullptr);
-  conn->Write(&resp, sizeof(resp));
-  conn->DisableWrite();
-  LOG(INFO) << "send resp: " << resp;
-  return true;
-}
 
 int main(int argc, char* argv[]) {
   google::InitGoogleLogging(argv[0]);
