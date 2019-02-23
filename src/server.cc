@@ -1,5 +1,7 @@
 #include "server.h"
 
+#include <signal.h>
+
 #include "glog/logging.h"
 #include "net.h"
 
@@ -11,6 +13,10 @@ Server::~Server() {
 }
 
 bool Server::Init() {
+  if (signal(SIGPIPE, SIG_IGN) == SIG_ERR) {
+    LOG(ERROR) << "ignore SIGPIPE error: " << strerror(errno);
+    return false;
+  }
   int needed_fds = max_connections_ + 1024;
   if (!SetRlimitNofile(needed_fds)) {
     return false;
