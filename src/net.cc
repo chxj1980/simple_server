@@ -1,6 +1,7 @@
 #include "net.h"
 
 #include <fcntl.h>
+#include <sys/eventfd.h>
 #include <sys/resource.h>
 #include <sys/socket.h>
 
@@ -102,7 +103,7 @@ bool EpollCtl(int efd, int fd, int op, int events) {
   ev.events = events;
   ev.data.fd = fd;
   if (epoll_ctl(efd, op, fd, &ev) == -1) {
-    LOG(ERROR) << "epoll_ctl error";
+    LOG(ERROR) << "epoll_ctl error: " << strerror(errno);
     return false;
   }
   return true;
@@ -117,6 +118,33 @@ int EpollWait(int efd, epoll_event* events, int max_events) {
     LOG(ERROR) << "epoll_wait error: " << strerror(errno);
   }
   return nfds;
+}
+
+int EventfdCreate(uint64_t init_val) {
+  // TODO(litao.sre): should EFD_NONBLOCK ?
+  int fd = eventfd(init_val, EFD_CLOEXEC);
+  if (fd == -1) {
+    LOG(ERROR) << "eventfd error: " << strerror(errno);
+    return -1;
+  }
+  return fd;
+}
+
+bool EventfdWrite(int fd, uint64_t val) {
+  if (eventfd_write(fd, val) == -1) {
+    LOG(ERROR) << "eventfd_write error: " << strerror(errno);
+    return false;
+  }
+  return true;
+}
+
+uint64_t EventfdRead(int fd) {
+  eventfd_t data;
+  if (eventfd_read(fd, &data) == -1) {
+    LOG(ERROR) << "eventfd_read error: " << strerror(errno);
+    return -1;
+  }
+  return data;
 }
 
 }  // namespace hera

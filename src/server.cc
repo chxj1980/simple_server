@@ -9,20 +9,27 @@ namespace hera {
 
 Server::~Server() {
   Close(lfd_);
+  Close(ifd_);
   Close(efd_);
 }
 
-bool Server::Init() {
+bool Server::Run() {
   if (signal(SIGPIPE, SIG_IGN) == SIG_ERR) {
     LOG(ERROR) << "ignore SIGPIPE error: " << strerror(errno);
     return false;
   }
-  int needed_fds = max_connections_ + 1024;
-  if (!SetRlimitNofile(needed_fds)) {
+  if (!SetRlimitNofile(max_connections_ + 1024)) {
     return false;
   }
   efd_ = EpollCreate();
   if (efd_ == -1) {
+    return false;
+  }
+  ifd_ = EventfdCreate(0L);
+  if (ifd_ == -1) {
+    return false;
+  }
+  if (!EpollCtl(efd_, ifd_, EPOLL_CTL_ADD, EPOLLIN)) {
     return false;
   }
   lfd_ = Listen(port_, backlog_);
@@ -33,19 +40,28 @@ bool Server::Init() {
     return false;
   }
   LOG(INFO) << "listen on port: " << port_;
+
+  while (!interrupted_) {
+    PollStatus status = Poll();
+    switch (status) {
+      case kPollContinue:
+        break;
+      case kPollInterrupt:
+        interrupted_ = true;
+        break;
+      default:
+        LOG(ERROR) << "poll error";
+        return false;
+    }
+  }
+  LOG(INFO) << "poll loop exit";
   return true;
 }
 
-void Server::Start() {
-  // TODO(litao.sre): while running
-  while (true) {
-    if (!Poll()) {
-      LOG(ERROR) << "poll error";
-    }
-  }
-}
-
-void Server::Stop() {
+void Server::Interrupt() {
+  LOG(INFO) << "interrupt server";
+  interrupted_ = true;
+  EventfdWrite(ifd_, 1);
 }
 
 ConnectionPtr Server::AcceptConn() {
@@ -68,10 +84,10 @@ ConnectionPtr Server::AcceptConn() {
   return conn;
 }
 
-bool Server::Poll() {
+Server::PollStatus Server::Poll() {
   int nfds = EpollWait(efd_, events_.data(), events_.size());
   if (nfds == -1) {
-    return false;
+    return kPollError;
   }
   for (int i = 0; i < nfds; ++i) {
     const epoll_event& event = events_[i];
@@ -81,6 +97,10 @@ bool Server::Poll() {
         LOG(INFO) << "accept: " << conn->addr_id();
         connections_[conn->fd()] = conn;
       }
+    } else if (event.data.fd == ifd_) {
+      EventfdRead(ifd_);
+      LOG(INFO) << "poll interrupt";
+      return kPollInterrupt;
     } else {
       int fd = event.data.fd;
       int events = event.events;
@@ -106,7 +126,7 @@ bool Server::Poll() {
       }
     }
   }
-  return true;
+  return kPollContinue;
 }
 
 }  // namespace hera

@@ -58,12 +58,8 @@ int main(int argc, char* argv[]) {
   int backlog = 128;
   size_t max_connections = 1024;
   MyServer server(port, backlog, max_connections);
-  if (!server.Init()) {
-    LOG(ERROR) << "server init error";
-    exit(EXIT_FAILURE);
-  }
   // TODO(litao.sre): signal handle
-  server.Start();
+  bool retval = server.Run();
   google::ShutdownGoogleLogging();
-  return 0;
+  return retval ? EXIT_SUCCESS : EXIT_FAILURE;
 }
