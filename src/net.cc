@@ -4,6 +4,7 @@
 #include <sys/eventfd.h>
 #include <sys/resource.h>
 #include <sys/socket.h>
+#include <sys/timerfd.h>
 
 #include "glog/logging.h"
 
@@ -104,7 +105,10 @@ bool SetReuseAddr(int sockfd) {
 }
 
 bool Close(int fd) {
-  if (fd == -1 || close(fd) == -1) {
+  if (fd == -1) {
+    return true;
+  }
+  if (close(fd) == -1) {
     LOG(ERROR) << "close error: " << strerror(errno);
     return false;
   }
@@ -143,7 +147,7 @@ int EpollWait(int efd, epoll_event* events, int max_events) {
 }
 
 int EventfdCreate(uint64_t init_val) {
-  // TODO(litao.sre): should EFD_NONBLOCK ?
+  // TODO(litao.sre): should EFD_NONBLOCK?
   int fd = eventfd(init_val, EFD_CLOEXEC);
   if (fd == -1) {
     LOG(ERROR) << "eventfd error: " << strerror(errno);
@@ -167,6 +171,32 @@ uint64_t EventfdRead(int fd) {
     return -1;
   }
   return data;
+}
+
+int TimerfdCreate(uint64_t interval_ms) {
+  // TODO(litao.sre): should TFD_NONBLOCK?
+  int fd = timerfd_create(CLOCK_MONOTONIC, TFD_CLOEXEC);
+  if (fd == -1) {
+    LOG(ERROR) << "timerfd_create error: " << strerror(errno);
+    return -1;
+  }
+  itimerspec its;
+  its.it_interval.tv_sec = interval_ms * 1000000L / 1000000000L;
+  its.it_interval.tv_nsec = interval_ms * 1000000L % 1000000000L;
+  its.it_value = its.it_interval;
+  if (timerfd_settime(fd, 0, &its, nullptr) == -1) {
+    LOG(ERROR) << "timerfd_settime error: " << strerror(errno);
+    close(fd);
+    return -1;
+  }
+  return fd;
+}
+
+uint64_t TimerfdRead(int fd) {
+  uint64_t expirations;
+  // TODO(litao.sre): when error?
+  read(fd, &expirations, sizeof(expirations));
+  return expirations;
 }
 
 }  // namespace hera

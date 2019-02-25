@@ -12,10 +12,12 @@ namespace hera {
 
 class Server {
  public:
-  Server(uint16_t port, int backlog, size_t max_connections) :
+  Server(uint16_t port, int backlog, size_t max_connections,
+      uint64_t idle_conn_timeout_ms) :
       interrupted_(false), port_(port), backlog_(backlog),
-      max_connections_(max_connections), lfd_(-1), efd_(-1), ifd_(-1),
-      events_(max_connections_) {}
+      max_connections_(max_connections),
+      idle_conn_timeout_ms_(idle_conn_timeout_ms),
+      lfd_(-1), efd_(-1), ifd_(-1), tfd_(-1), events_(max_connections_) {}
   virtual ~Server();
 
   Server(const Server&) = delete;
@@ -30,6 +32,8 @@ class Server {
   virtual HandlerPtr CreateHandler() = 0;
 
  private:
+  static const uint64_t kIdleConnCleanIntervalMs;
+
   enum PollStatus {
     kPollContinue = 0,
     kPollInterrupt = 1,
@@ -43,9 +47,11 @@ class Server {
   uint16_t port_;
   int backlog_;
   size_t max_connections_;
+  uint64_t idle_conn_timeout_ms_;
   int lfd_;
   int efd_;
   int ifd_;
+  int tfd_;
   std::vector<epoll_event> events_;
   std::unordered_map<int, ConnectionPtr> connections_;
 };

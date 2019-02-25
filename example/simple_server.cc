@@ -39,8 +39,9 @@ bool MyHandler::OnComplete(bool succ) {
 
 class MyServer : public hera::Server {
  public:
-  MyServer(uint16_t port, int backlog, size_t max_connections) :
-      Server(port, backlog, max_connections) {}
+  MyServer(uint16_t port, int backlog, size_t max_connections,
+      uint64_t idle_conn_timeout_ms) :
+      Server(port, backlog, max_connections, idle_conn_timeout_ms) {}
 
  protected:
   virtual hera::HandlerPtr CreateHandler() {
@@ -57,7 +58,8 @@ int main(int argc, char* argv[]) {
   uint16_t port = atoi(argv[1]);
   int backlog = 128;
   size_t max_connections = 1024;
-  MyServer server(port, backlog, max_connections);
+  uint64_t idle_conn_timeout_ms = 10000;
+  MyServer server(port, backlog, max_connections, idle_conn_timeout_ms);
   // TODO(litao.sre): signal handle
   bool retval = server.Run();
   google::ShutdownGoogleLogging();

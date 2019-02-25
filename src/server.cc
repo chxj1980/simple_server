@@ -7,8 +7,11 @@
 
 namespace hera {
 
+const uint64_t Server::kIdleConnCleanIntervalMs = 3000L;
+
 Server::~Server() {
   Close(lfd_);
+  Close(tfd_);
   Close(ifd_);
   Close(efd_);
 }
@@ -26,17 +29,15 @@ bool Server::Run() {
     return false;
   }
   ifd_ = EventfdCreate(0L);
-  if (ifd_ == -1) {
+  if (ifd_ == -1 || !EpollCtl(efd_, ifd_, EPOLL_CTL_ADD, EPOLLIN)) {
     return false;
   }
-  if (!EpollCtl(efd_, ifd_, EPOLL_CTL_ADD, EPOLLIN)) {
+  tfd_ = TimerfdCreate(kIdleConnCleanIntervalMs);
+  if (tfd_ == -1 || !EpollCtl(efd_, tfd_, EPOLL_CTL_ADD, EPOLLIN)) {
     return false;
   }
   lfd_ = Listen(port_, backlog_);
-  if (lfd_ == -1) {
-    return false;
-  }
-  if (!EpollCtl(efd_, lfd_, EPOLL_CTL_ADD, EPOLLIN)) {
+  if (lfd_ == -1 || !EpollCtl(efd_, lfd_, EPOLL_CTL_ADD, EPOLLIN)) {
     return false;
   }
   LOG(INFO) << "listen on port: " << port_;
@@ -98,9 +99,14 @@ Server::PollStatus Server::Poll() {
         connections_[conn->fd()] = conn;
       }
     } else if (event.data.fd == ifd_) {
+      // TODO(litao.sre): when error?
       EventfdRead(ifd_);
       LOG(INFO) << "poll interrupt";
       return kPollInterrupt;
+    } else if (event.data.fd == tfd_) {
+      // TODO(litao.sre): when error?
+      TimerfdRead(tfd_);
+      LOG(INFO) << "try to clean idle conn";
     } else {
       int fd = event.data.fd;
       int events = event.events;

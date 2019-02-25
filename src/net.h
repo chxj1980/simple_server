@@ -23,4 +23,7 @@ int EventfdCreate(uint64_t init_val);
 bool EventfdWrite(int fd, uint64_t val);
 uint64_t EventfdRead(int fd);
 
+int TimerfdCreate(uint64_t interval_ms);
+uint64_t TimerfdRead(int fd);
+
 }  // namespace hera
