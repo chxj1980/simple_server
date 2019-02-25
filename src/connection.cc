@@ -11,7 +11,7 @@ const size_t Connection::kMinBufCap = 1024;
 const size_t Connection::kBufExpandThreshold = 128;
 
 Connection::Connection(int efd, int fd, sockaddr_in addr, HandlerPtr handler) :
-    Pollable(efd, fd), addr_(addr), handler_(handler),
+    efd_(efd), fd_(fd), events_(0), addr_(addr), handler_(handler),
     read_buf_(std::make_shared<Buffer>(kMinBufCap)),
     write_buf_(std::make_shared<Buffer>(kMinBufCap)) {
   uint16_t port = ntohs(addr_.sin_port);
@@ -22,7 +22,23 @@ Connection::Connection(int efd, int fd, sockaddr_in addr, HandlerPtr handler) :
 }
 
 Connection::~Connection() {
+  if (events_ != 0) {
+    EpollCtl(efd_, fd_, EPOLL_CTL_DEL, 0);
+  }
+  Close(fd_);
   delete[] addr_id_;
+}
+
+bool Connection::EnableRead() {
+  return AddEvent(EPOLLPRI | EPOLLIN);
+}
+
+bool Connection::EnableWrite() {
+  return AddEvent(EPOLLOUT);
+}
+
+bool Connection::DisableWrite() {
+  return DelEvent(EPOLLOUT);
 }
 
 bool Connection::OnRead() {
@@ -30,7 +46,7 @@ bool Connection::OnRead() {
     if (read_buf_->remaining() < kBufExpandThreshold) {
       read_buf_->Expand(read_buf_->capacity());
     }
-    ssize_t num = read(fd(), read_buf_->tail(), read_buf_->remaining());
+    ssize_t num = read(fd_, read_buf_->tail(), read_buf_->remaining());
     if (num == 0) {
       LOG(INFO) << "peer closed: " << addr_id();
       return false;
@@ -56,7 +72,7 @@ bool Connection::OnRead() {
 
 bool Connection::OnWrite() {
   do {
-    int num = write(fd(), write_buf_->head(), write_buf_->size());
+    int num = write(fd_, write_buf_->head(), write_buf_->size());
     if (num == 0) {
       return true;
     } else if (num < 0) {
@@ -74,6 +90,30 @@ bool Connection::OnWrite() {
       }
     }
   } while (true);
+}
+
+bool Connection::AddEvent(int events) {
+  int new_events = events_ | events;
+  if (new_events != events_) {
+    int op = events_ ? EPOLL_CTL_MOD : EPOLL_CTL_ADD;
+    if (!EpollCtl(efd_, fd_, op, new_events)) {
+      return false;
+    }
+    events_ = new_events;
+  }
+  return true;
+}
+
+bool Connection::DelEvent(int events) {
+  int new_events = events_ & ~events;
+  if (new_events != events_) {
+    int op = new_events ? EPOLL_CTL_MOD : EPOLL_CTL_DEL;
+    if (!EpollCtl(efd_, fd_, op, new_events)) {
+      return false;
+    }
+    events_ = new_events;
+  }
+  return true;
 }
 
 }  // namespace hera
