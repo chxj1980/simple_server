@@ -72,6 +72,28 @@ int Accept(int sockfd, sockaddr_in& addr) {
   return fd;
 }
 
+int Connect(const char* host, const uint16_t port) {
+  int fd = socket(AF_INET, SOCK_STREAM, 0);
+  if (fd == -1) {
+    LOG(ERROR) << "socket error: " << strerror(errno);
+    return -1;
+  }
+  sockaddr_in addr;
+  addr.sin_family = AF_INET;
+  addr.sin_port = htons(port); 
+  if(inet_pton(AF_INET, host, &addr.sin_addr) <= 0) {
+    LOG(ERROR) << "invalid host: " << host;
+    close(fd);
+    return -1;
+  }
+  if(connect(fd, reinterpret_cast<sockaddr*>(&addr), sizeof(addr)) == -1) {
+    LOG(ERROR) << "connect error: " << strerror(errno);
+    close(fd);
+    return -1;
+  }
+  return fd;
+}
+
 bool SetReuseAddr(int sockfd) {
   int on = 1;
   if (setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &on, sizeof(on)) == -1) {

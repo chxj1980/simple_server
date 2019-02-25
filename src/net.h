@@ -9,6 +9,7 @@ bool SetRlimitNofile(int fds);
 
 int Listen(uint16_t port, int backlog);
 int Accept(int sockfd, sockaddr_in& addr);
+int Connect(const char* host, const uint16_t port);
 
 bool SetReuseAddr(int sockfd);
 

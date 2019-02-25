@@ -10,5 +10,9 @@ link_directories(lib/glog)
 add_definitions("-Wall -std=c++11")
 
 file(GLOB_RECURSE HERA_SOURCES "src/*.cc")
+
 add_executable(simple_server example/simple_server.cc ${HERA_SOURCES})
 target_link_libraries(simple_server glog)
+
+add_executable(simple_client example/simple_client.cc ${HERA_SOURCES})
+target_link_libraries(simple_client glog)
